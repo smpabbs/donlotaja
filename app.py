@@ -244,70 +244,67 @@ def api_download():
 
     # Mode 2: download via yt-dlp (for platforms where CDN is blocked from Vercel)
     if source:
-        import yt_dlp, tempfile
+        import yt_dlp, tempfile, io, uuid
 
         try:
-            tf = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-            tf.close()
-            tmp_path = tf.name
-
+            # Step 1: Get direct URL and file info via extract_info (not download)
             cookie_file = get_cookie_file()
-            try:
-                import io
-                log_buf = io.StringIO()
-                ydl_opts = {
-                    "quiet": False,
-                    "no_warnings": False,
-                    "verbose": True,
-                    "no_playlist": True,
-                    "cookiefile": cookie_file,
-                    "format": "best",
-                    "outtmpl": tmp_path,
-                    "logger": type('Logger', (), {
-                        'debug': lambda s, msg: None,
-                        'warning': lambda s, msg: log_buf.write(msg + '\n'),
-                        'error': lambda s, msg: log_buf.write(msg + '\n'),
-                    })(),
-                }
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "no_playlist": True,
+                "cookiefile": cookie_file,
+                "format": "best",
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                meta = ydl.extract_info(source, download=False)
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([source])
-                err_log = log_buf.getvalue()
+            dl_url = meta.get("url", "")
+            if not dl_url:
+                # Try best format
+                fmts = meta.get("requested_formats", meta.get("formats", [meta]))
+                for f in fmts:
+                    if f.get("url"):
+                        dl_url = f["url"]
+                        break
 
-                if not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
-                    return jsonify({"error": "Download gagal - file not found", "tmp_path": tmp_path, "exists": os.path.isfile(tmp_path), "detail": err_log[:1000]}), 500
-            except Exception as e:
-                err_log = log_buf.getvalue() if 'log_buf' in dir() else ""
-                return jsonify({"error": "yt-dlp: " + str(e)[:300], "detail": err_log[:1000], "tmp_path": tmp_path}), 500
+            if not dl_url:
+                return jsonify({"error": "Tidak ada URL download ditemukan"}), 500
 
-            file_size = os.path.getsize(tmp_path)
+            # Sanitize filename
+            title = meta.get("title", "video")[:50]
+            ext = meta.get("ext", "mp4")
+            safe_name = re.sub(r'[^a-zA-Z0-9]+', '_', title).strip('_') + "." + ext
+
+            # Step 2: Stream the video through with proper download headers
+            req = urllib.request.Request(dl_url)
+            req.add_header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+            if "instagram" in source.lower():
+                req.add_header("Referer", "https://www.instagram.com/")
+
+            resp = urllib.request.urlopen(req, timeout=60)
+            file_size = resp.headers.get("Content-Length", "")
+            total = int(file_size) if file_size else 0
 
             def generate():
-                with open(tmp_path, "rb") as f:
-                    while True:
-                        chunk = f.read(65536)
-                        if not chunk:
-                            break
-                        yield chunk
-                os.unlink(tmp_path)
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
 
             return Response(
                 generate(),
                 status=200,
                 headers={
                     "Content-Type": "application/octet-stream",
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Content-Length": str(file_size),
+                    "Content-Disposition": f'attachment; filename="{safe_name}"',
+                    "Content-Length": str(total) if total else "",
                     "Access-Control-Allow-Origin": "*",
                 }
             )
         except Exception as e:
-            try:
-                if tmp_path and os.path.isfile(tmp_path):
-                    os.unlink(tmp_path)
-            except Exception:
-                pass
-            return jsonify({"error": str(e)[:300], "detail": err_log[:1000] if 'err_log' in dir() else ""}), 502
+            return jsonify({"error": str(e)[:300]}), 502
 
     return jsonify({"error": "Missing url or source param"}), 400
 
