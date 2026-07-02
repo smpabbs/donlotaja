@@ -1,6 +1,6 @@
-import os, re, json, hashlib, urllib.request, tempfile, base64
+import os, re, json, urllib.request, tempfile, base64
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, Response, redirect
+from flask import Flask, render_template, request, jsonify, Response
 
 app = Flask(__name__)
 
