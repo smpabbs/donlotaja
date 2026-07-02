@@ -1,26 +1,18 @@
-import os, re, json, hashlib
+import os, re, json, hashlib, urllib.request, tempfile, base64
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, redirect
 
 app = Flask(__name__)
 
-# ─── yt-dlp wrapper ──────────────────────────────────────────────────────────
+# ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def extract_info(url):
-    """
-    Extract media info & direct download links using yt-dlp.
-    Returns list of formats with direct URLs.
-    """
-    import yt_dlp
-
-    # Cookie file (for Instagram etc.) — support Vercel env var
+def get_cookie_file():
+    """Get yt-dlp compatible cookie file from env or local path."""
     cookie_file = None
     insta_b64 = os.environ.get("INSTA_COOKIES_B64", "")
     if insta_b64:
-        import tempfile, base64
         try:
             raw = base64.b64decode(insta_b64).decode()
-            # Convert space-separated Netscape to tab-separated
             tab_lines = ["# Netscape HTTP Cookie File", "# Auto-converted", ""]
             for line in raw.strip().split("\n"):
                 if line.startswith("#") or not line.strip():
@@ -40,6 +32,31 @@ def extract_info(url):
         cookie_file = os.path.expanduser("~/.dl_bot_cookies.txt")
         if not os.path.isfile(cookie_file):
             cookie_file = None
+    return cookie_file
+
+
+def get_filesize_mb(direct_url):
+    """Try to get file size from a direct URL via HEAD request."""
+    if not direct_url:
+        return 0
+    try:
+        req = urllib.request.Request(direct_url, method="HEAD")
+        # Some CDNs need user-agent
+        req.add_header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            length = resp.headers.get("Content-Length")
+            if length:
+                return round(int(length) / (1024 * 1024), 1)
+    except Exception:
+        pass
+    return 0
+
+
+def extract_info(url):
+    """Extract media info & direct download links using yt-dlp."""
+    import yt_dlp
+
+    cookie_file = get_cookie_file()
 
     ydl_opts = {
         "quiet": True,
@@ -62,7 +79,6 @@ def extract_info(url):
         "spotify": ["open.spotify.com"],
         "twitch": ["twitch.tv"],
         "vimeo": ["vimeo.com"],
-        "tiktok": ["tiktok.com"],
     }
 
     def detect_platform(u):
@@ -74,7 +90,6 @@ def extract_info(url):
 
     platform = detect_platform(url)
 
-    # Build response
     result = {
         "title": meta.get("title", "Unknown"),
         "platform": platform,
@@ -87,7 +102,6 @@ def extract_info(url):
 
     seen = set()
     for f in meta.get("formats", []):
-        # Skip non-downloadable
         url_dl = f.get("url", "")
         if not url_dl or url_dl in seen:
             continue
@@ -99,12 +113,14 @@ def extract_info(url):
         vcodec = f.get("vcodec", "none")
         acodec = f.get("acodec", "none")
 
+        filesize_mb = round(filesize / (1024 * 1024), 1) if filesize else 0
+
         fmt = {
             "url": url_dl,
             "ext": ext,
             "height": height,
             "filesize": filesize,
-            "filesize_mb": round(filesize / (1024 * 1024), 1) if filesize else 0,
+            "filesize_mb": filesize_mb,
             "vcodec": vcodec,
             "acodec": acodec,
             "format_note": f.get("format_note", ""),
@@ -115,15 +131,20 @@ def extract_info(url):
             "has_video": vcodec != "none",
             "has_audio": acodec != "none",
         }
-
-        # Prioritize good quality
         result["formats"].append(fmt)
 
     # Sort: best video first
     result["formats"].sort(key=lambda x: (x["has_video"], x["height"], x["filesize"]), reverse=True)
 
-    # Best single format (for quick download)
-    # Pick best with both video+audio
+    # Try to get file sizes for formats that don't have it
+    for fmt in result["formats"]:
+        if fmt["filesize_mb"] == 0:
+            size = get_filesize_mb(fmt["url"])
+            if size:
+                fmt["filesize_mb"] = size
+                fmt["filesize"] = int(size * 1024 * 1024)
+
+    # Best single format (video+audio)
     best = None
     for f in result["formats"]:
         if f["has_video"] and f["has_audio"]:
@@ -150,7 +171,6 @@ def api_extract():
     if not url:
         return jsonify({"error": "URL wajib diisi"}), 400
 
-    # Basic URL validation
     if not re.match(r"https?://[^\s]+", url):
         return jsonify({"error": "Format URL tidak valid. Gunakan link yang lengkap (https://...)"}), 400
 
@@ -162,12 +182,53 @@ def api_extract():
         return jsonify({"error": err_msg}), 422
 
 
+@app.route("/api/dl")
+def api_download():
+    """Proxy download: stream direct URL with Content-Disposition header."""
+    dl_url = request.args.get("url", "")
+    filename = request.args.get("filename", "donlotaja_video.mp4")
+
+    if not dl_url:
+        return jsonify({"error": "Missing url param"}), 400
+
+    try:
+        req = urllib.request.Request(dl_url)
+        req.add_header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+
+        # Instagram CDN might need referrer
+        if "instagram.com" in dl_url or "cdninstagram" in dl_url:
+            req.add_header("Referer", "https://www.instagram.com/")
+
+        resp = urllib.request.urlopen(req, timeout=30)
+
+        def generate():
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+
+        return Response(
+            generate(),
+            status=resp.status,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": resp.headers.get("Content-Length", ""),
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+    except urllib.error.HTTPError as e:
+        return jsonify({"error": f"HTTP {e.code}: {e.reason}"}), e.code
+    except Exception as e:
+        return jsonify({"error": str(e)[:200]}), 502
+
+
 @app.route("/api/cookies-status")
 def cookies_status():
-    cookie_file = os.path.expanduser("~/.dl_bot_cookies.txt")
-    exists = os.path.isfile(cookie_file)
+    cookie_file = get_cookie_file()
     return jsonify({
-        "has_cookies": exists,
+        "has_cookies": cookie_file is not None,
         "note": "Cookies diperlukan untuk Instagram & X/Twitter"
     })
 
