@@ -110,8 +110,27 @@ def extract_info(url):
         ext = f.get("ext", "unknown")
         height = f.get("height", 0) or 0
         filesize = f.get("filesize", f.get("filesize_approx", 0)) or 0
-        vcodec = f.get("vcodec", "none")
-        acodec = f.get("acodec", "none")
+        raw_vcodec = f.get("vcodec")
+        raw_acodec = f.get("acodec")
+
+        # Determine has_video / has_audio:
+        # DASH formats: vcodec="none"/acodec="none" => video-only/audio-only
+        # Progressive formats (e.g. IG): vcodec=None, acodec=None/missing => has both
+        # Regular formats: explicit vcodec/acodec strings
+        has_video = raw_vcodec is not None and raw_vcodec != "none"
+        has_audio = raw_acodec is not None and raw_acodec != "none"
+
+        # Progressive/raw format: both codecs unset but format has both tracks
+        if raw_vcodec is None and raw_acodec is None:
+            has_video = True
+            has_audio = True
+        # Shouldn't happen, but handle edge cases
+        elif raw_vcodec is not None and raw_vcodec != "none" and raw_acodec is None:
+            has_video = True
+            has_audio = False
+        elif raw_acodec is not None and raw_acodec != "none" and raw_vcodec is None:
+            has_video = False
+            has_audio = True
 
         filesize_mb = round(filesize / (1024 * 1024), 1) if filesize else 0
 
@@ -121,20 +140,18 @@ def extract_info(url):
             "height": height,
             "filesize": filesize,
             "filesize_mb": filesize_mb,
-            "vcodec": vcodec,
-            "acodec": acodec,
             "format_note": f.get("format_note", ""),
             "format_id": f.get("format_id", ""),
             "tbr": f.get("tbr", 0),
             "fps": f.get("fps", 0) or 0,
             "resolution": f"{height}p" if height else "audio",
-            "has_video": vcodec != "none",
-            "has_audio": acodec != "none",
+            "has_video": has_video,
+            "has_audio": has_audio,
         }
         result["formats"].append(fmt)
 
-    # Sort: best video first
-    result["formats"].sort(key=lambda x: (x["has_video"], x["height"], x["filesize"]), reverse=True)
+    # Sort: formats with both audio+video first, then resolution, then size
+    result["formats"].sort(key=lambda x: (x["has_video"] and x["has_audio"], x["has_video"], x["height"], x["filesize_mb"]), reverse=True)
 
     # Try to get file sizes for formats that don't have it
     for fmt in result["formats"]:
