@@ -1,428 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>donlotaja</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
-    <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        :root {
-            --bg: #0a0a0f;
-            --surface: #12121a;
-            --surface-2: #1a1a28;
-            --border: #252538;
-            --text: #e4e4ed;
-            --text-secondary: #8888a0;
-            --accent: #7c6aff;
-            --accent-dim: #5a4fbf;
-            --accent-glow: rgba(124, 106, 255, 0.15);
-            --success: #34d399;
-            --error: #f87171;
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
-
-        html { font-size: 16px; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg); color: var(--text);
-            min-height: 100vh; display: flex; flex-direction: column;
-            line-height: 1.6; -webkit-font-smoothing: antialiased;
-        }
-
-        .container { max-width: 800px; margin: 0 auto; padding: 24px 20px; width: 100%; flex: 1; }
-
-        header { text-align: center; padding: 48px 0 40px; }
-
-        .logo {
-            display: inline-flex; align-items: center; gap: 10px;
-            font-size: 2rem; font-weight: 700; letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .logo svg { width: 36px; height: 36px; -webkit-text-fill-color: initial; }
-
-        .subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-top: 8px; }
-
-        .search-section { margin-bottom: 32px; }
-
-        .input-group {
-            display: flex; gap: 12px; background: var(--surface);
-            border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 4px; transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-
-        .input-group input {
-            flex: 1; background: transparent; border: none; outline: none;
-            color: var(--text); font-family: inherit; font-size: 1rem; padding: 14px 16px;
-        }
-
-        .input-group input::placeholder { color: var(--text-secondary); }
-
-        .input-group button {
-            background: var(--accent); color: #fff; border: none;
-            border-radius: var(--radius-sm); padding: 12px 24px;
-            font-family: inherit; font-size: 0.95rem; font-weight: 600;
-            cursor: pointer; transition: background 0.2s, transform 0.1s;
-            white-space: nowrap; display: flex; align-items: center; gap: 8px;
-        }
-
-        .input-group button:hover { background: var(--accent-dim); }
-        .input-group button:active { transform: scale(0.97); }
-        .input-group button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-        .spinner { display: none; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
-        .input-group button.loading .spinner { display: inline-block; }
-        .input-group button.loading .btn-text { display: none; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .error-box {
-            background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3);
-            border-radius: var(--radius-sm); padding: 16px 20px; margin-bottom: 24px;
-            display: none; color: var(--error); font-size: 0.9rem;
-        }
-        .error-box.show { display: block; }
-
-        .loading-state { display: none; text-align: center; padding: 60px 0; }
-        .loading-state.show { display: block; }
-        .loading-pulse { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); margin: 0 auto 20px; animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
-        .loading-state p { color: var(--text-secondary); font-size: 0.9rem; }
-
-        .result { display: none; }
-        .result.show { display: block; }
-
-        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-
-        .card-header { display: flex; gap: 16px; padding: 20px; border-bottom: 1px solid var(--border); }
-        .card-thumb { width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; background: var(--surface-2); }
-        .card-info { flex: 1; min-width: 0; }
-        .card-info h2 { font-size: 1.05rem; font-weight: 600; line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-        .card-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
-        .card-meta span { display: inline-flex; align-items: center; gap: 4px; }
-
-        .platform-badge {
-            display: inline-block; background: var(--accent-glow); color: var(--accent);
-            padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
-            text-transform: capitalize;
-        }
-
-        .format-list { padding: 16px 20px; }
-        .format-list h3 { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-
-        .format-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 16px; background: var(--surface-2);
-            border-radius: var(--radius-sm); margin-bottom: 8px;
-            transition: background 0.2s;
-        }
-        .format-item:hover { background: rgba(124, 106, 255, 0.08); }
-
-        .format-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-
-        .format-icon {
-            width: 36px; height: 36px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.85rem; font-weight: 700; flex-shrink: 0;
-        }
-        .format-icon.video { background: rgba(124, 106, 255, 0.15); color: var(--accent); }
-        .format-icon.audio { background: rgba(52, 211, 153, 0.15); color: var(--success); }
-
-        .format-detail { font-size: 0.9rem; }
-        .format-detail .label { font-weight: 600; }
-        .format-detail .hint { font-size: 0.8rem; color: var(--text-secondary); }
-        .format-size-badge {
-            display: inline-block; background: rgba(136, 136, 160, 0.12);
-            padding: 1px 8px; border-radius: 6px; font-size: 0.75rem;
-            color: var(--text-secondary); font-weight: 500; margin-left: 6px;
-        }
-        .format-size-badge.has-size { background: rgba(52, 211, 153, 0.12); color: var(--success); }
-
-        .format-actions { display: flex; gap: 6px; flex-shrink: 0; }
-
-        .format-actions .dl-btn {
-            display: inline-flex; align-items: center; gap: 5px;
-            background: var(--accent); color: #fff; border: none;
-            border-radius: 8px; padding: 8px 14px;
-            font-family: inherit; font-size: 0.8rem; font-weight: 600;
-            cursor: pointer; text-decoration: none; transition: background 0.2s;
-            white-space: nowrap;
-        }
-        .format-actions .dl-btn:hover { background: var(--accent-dim); }
-        .format-actions .copy-btn {
-            background: transparent; border: 1px solid var(--border);
-            color: var(--text); border-radius: 8px; padding: 8px 10px;
-            font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
-        }
-        .format-actions .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-        footer { text-align: center; padding: 32px 20px 24px; color: var(--text-secondary); font-size: 0.8rem; }
-        footer a { color: var(--accent); text-decoration: none; }
-        footer a:hover { text-decoration: underline; }
-
-        .examples { margin-top: 24px; }
-        .examples p { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; }
-        .example-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-        .chip {
-            padding: 6px 12px; background: var(--surface); border: 1px solid var(--border);
-            border-radius: 20px; font-size: 0.8rem; color: var(--text-secondary);
-            cursor: pointer; transition: all 0.2s;
-        }
-        .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-
-        /* Toast */
-        .toast {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-            background: var(--success); color: #000; padding: 10px 24px;
-            border-radius: 10px; font-weight: 600; font-size: 0.9rem;
-            z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            display: none;
-        }
-        .toast.show { display: block; animation: toastIn 0.3s ease; }
-        @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-
-        @media (max-width: 600px) {
-            .container { padding: 16px 14px; }
-            header { padding: 32px 0 28px; }
-            .logo { font-size: 1.6rem; }
-            .input-group { flex-direction: column; background: transparent; border: none; padding: 0; gap: 8px; }
-            .input-group input { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-            .input-group button { justify-content: center; }
-            .card-header { flex-direction: column; align-items: flex-start; }
-            .card-thumb { width: 60px; height: 60px; }
-            .format-item { flex-wrap: wrap; gap: 8px; }
-            .format-actions { width: 100%; }
-            .format-actions .dl-btn { flex: 1; justify-content: center; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>donlotaja</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:#252538;--text:#e4e4ed;--text2:#8888a0;--accent:#7c6aff;--accent2:#5a4fbf;--glow:rgba(124,106,255,0.15);--success:#34d399;--error:#f87171;--r:16px;--rs:10px}
+html{font-size:16px}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;line-height:1.6}
+.container{max-width:800px;margin:0 auto;padding:24px 20px;width:100%;flex:1}
+header{text-align:center;padding:48px 0 40px}
+.logo{display:inline-flex;align-items:center;gap:10px;font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--accent),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo svg{width:36px;height:36px;-webkit-text-fill-color:initial}
+.subtitle{color:var(--text2);font-size:.95rem;margin-top:8px}
+.search-section{margin-bottom:32px}
+.input-group{display:flex;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:4px;transition:border-color .2s,box-shadow .2s}
+.input-group:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.input-group input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:inherit;font-size:1rem;padding:14px 16px}
+.input-group input::placeholder{color:var(--text2)}
+.input-group button{background:var(--accent);color:#fff;border:none;border-radius:var(--rs);padding:12px 24px;font-family:inherit;font-size:.95rem;font-weight:600;cursor:pointer;transition:background .2s;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.input-group button:hover{background:var(--accent2)}
+.input-group button:active{transform:scale(.97)}
+.input-group button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+.btn-loading .spinner{display:inline-block}
+.btn-loading .btn-text{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:var(--rs);padding:16px 20px;margin-bottom:24px;display:none;color:var(--error);font-size:.9rem;word-break:break-word}
+.error-box.show{display:block}
+.loading-state{display:none;text-align:center;padding:60px 0}
+.loading-state.show{display:block}
+.pulse{width:48px;height:48px;border-radius:50%;background:var(--accent);margin:0 auto 20px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.loading-state p{color:var(--text2);font-size:.9rem}
+.result{display:none}
+.result.show{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-top{display:flex;gap:16px;padding:20px;border-bottom:1px solid var(--border)}
+.thumb{width:80px;height:80px;border-radius:var(--rs);object-fit:cover;flex-shrink:0;background:var(--surface2)}
+.info{flex:1;min-width:0}
+.info h2{font-size:1.05rem;font-weight:600;line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;flex-wrap:wrap;gap:8px;font-size:.8rem;color:var(--text2)}
+.badge{display:inline-block;background:var(--glow);color:var(--accent);padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:capitalize}
+.flist{padding:16px 20px}
+.flist h3{font-size:.85rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.fitem{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-radius:var(--rs);margin-bottom:8px;transition:background .2s}
+.fitem:hover{background:rgba(124,106,255,.08)}
+.fleft{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.ficon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;flex-shrink:0}
+.ficon.v{background:rgba(124,106,255,.15);color:var(--accent)}
+.ficon.a{background:rgba(52,211,153,.15);color:var(--success)}
+.fdetail{font-size:.9rem}
+.flabel{font-weight:600}
+.fhint{font-size:.8rem;color:var(--text2)}
+.fsize{display:inline-block;background:rgba(136,136,160,.12);padding:1px 8px;border-radius:6px;font-size:.75rem;color:var(--text2);font-weight:500;margin-left:6px}
+.fsize.ok{background:rgba(52,211,153,.12);color:var(--success)}
+.facts{display:flex;gap:6px;flex-shrink:0}
+.dlbtn{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:inherit;font-size:.8rem;font-weight:600;cursor:pointer;text-decoration:none;transition:background .2s;white-space:nowrap}
+.dlbtn:hover{background:var(--accent2)}
+.dlbtn:disabled{opacity:.5;cursor:not-allowed}
+.copybtn{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.85rem;cursor:pointer;transition:all .2s}
+.copybtn:hover{border-color:var(--accent);color:var(--accent)}
+footer{text-align:center;padding:32px 20px 24px;color:var(--text2);font-size:.8rem}
+footer a{color:var(--accent);text-decoration:none}
+.examples{margin-top:24px}
+.examples p{font-size:.8rem;color:var(--text2);margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:.8rem;color:var(--text2);cursor:pointer;transition:all .2s}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--glow)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--success);color:#000;padding:10px 24px;border-radius:10px;font-weight:600;font-size:.9rem;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.3);display:none;transition:opacity .3s}
+.toast.show{display:block}
+@media(max-width:600px){
+.container{padding:16px 14px}
+header{padding:32px 0 28px}
+.logo{font-size:1.6rem}
+.input-group{flex-direction:column;background:transparent;border:none;padding:0;gap:8px}
+.input-group input{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs)}
+.input-group button{justify-content:center}
+.card-top{flex-direction:column;align-items:flex-start}
+.thumb{width:60px;height:60px}
+.fitem{flex-wrap:wrap;gap:8px}
+.facts{width:100%}
+.facts .dlbtn{flex:1;justify-content:center}
+}
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <svg viewBox="0 0 36 36" fill="none">
-                    <rect width="36" height="36" rx="10" fill="url(#glogo)"/>
-                    <path d="M11 18l5 5 9-9" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                    <defs><linearGradient id="glogo" x1="0" y1="0" x2="36" y2="36"><stop stop-color="#7c6aff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
-                </svg>
-                donlotaja
-            </div>
-            <p class="subtitle">Paste link, download langsung ke perangkat</p>
-        </header>
+<div class=container>
+<header>
+<div class=logo>
+<svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="10" fill="url(#g)"/><path d="M11 18l5 5 9-9" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="g" x1="0" y1="0" x2="36" y2="36"><stop stop-color="#7c6aff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs></svg>
+donlotaja
+</div>
+<p class=subtitle>Paste link, download langsung ke perangkat</p>
+</header>
 
-        <div class="search-section">
-            <div class="input-group">
-                <input type="url" id="urlInput" placeholder="Tempel link YouTube, IG, TikTok, X..." spellcheck="false" autofocus>
-                <button id="extractBtn" onclick="extract()">
-                    <span class="btn-text">↗ Cari</span>
-                    <span class="spinner"></span>
-                </button>
-            </div>
-        </div>
+<div class=search-section>
+<div class=input-group>
+<input type=url id=urlInput placeholder="Tempel link YouTube, IG, TikTok, X..." spellcheck=false autofocus>
+<button id=extractBtn onclick=extract()><span class=btn-text>↗ Cari</span><span class=spinner></span></button>
+</div>
+</div>
 
-        <div class="error-box" id="errorBox"></div>
+<div class=error-box id=errorBox></div>
 
-        <div class="loading-state" id="loadingState">
-            <div class="loading-pulse"></div>
-            <p>Mengambil tautan download...</p>
-        </div>
+<div class=loading-state id=loadingState><div class=pulse></div><p>Mengambil tautan download...</p></div>
 
-        <div class="result" id="resultContainer">
-            <div class="card" id="resultCard">
-                <div class="card-header">
-                    <img class="card-thumb" id="thumbEl" src="" alt="thumbnail">
-                    <div class="card-info">
-                        <h2 id="titleEl"></h2>
-                        <div class="card-meta">
-                            <span class="platform-badge" id="platformEl"></span>
-                            <span id="uploaderEl"></span>
-                            <span id="durationEl"></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="format-list" id="formatList">
-                    <h3>Pilih kualitas & download</h3>
-                    <div id="formatItems"></div>
-                </div>
-            </div>
-        </div>
+<div class=result id=resultContainer>
+<div class=card>
+<div class=card-top>
+<img class=thumb id=thumbEl src alt=thumbnail>
+<div class=info>
+<h2 id=titleEl></h2>
+<div class=meta><span class=badge id=platformEl></span><span id=uploaderEl></span><span id=durationEl></span></div>
+</div>
+</div>
+<div class=flist id=formatList>
+<h3>Pilih kualitas & download</h3>
+<div id=formatItems></div>
+</div>
+</div>
+</div>
 
-        <div class="examples">
-            <p>Coba link berikut:</p>
-            <div class="example-chips" id="exampleChips">
-                <span class="chip" data-url="https://youtube.com/watch?v=dQw4w9WgXcQ">YouTube</span>
-                <span class="chip" data-url="https://www.instagram.com/reel/DXZttc1k_Bs/">Instagram</span>
-                <span class="chip" data-url="https://tiktok.com/@instagram/video/7447225305723129094">TikTok</span>
-                <span class="chip" data-url="https://x.com/NASA/status/1867892581544677744">X/Twitter</span>
-                <span class="chip" data-url="https://soundcloud.com/artist/track">SoundCloud</span>
-            </div>
-        </div>
+<div class=examples>
+<p>Coba link berikut:</p>
+<div class=chips>
+<span class=chip data-url="https://youtube.com/watch?v=dQw4w9WgXcQ">YouTube</span>
+<span class=chip data-url="https://www.instagram.com/reel/DXZttc1k_Bs/">Instagram</span>
+<span class=chip data-url="https://tiktok.com/@instagram/video/7447225305723129094">TikTok</span>
+<span class=chip data-url="https://x.com/NASA/status/1867892581544677744">X/Twitter</span>
+</div>
+</div>
 
-        <footer>
-            <a href="https://github.com/smpabbs/donlotaja" target="_blank">donlotaja</a> &mdash; open-source
-        </footer>
-    </div>
+<footer><a href="https://github.com/smpabbs/donlotaja" target=_blank>donlotaja</a> &mdash; open-source</footer>
+</div>
 
-    <div class="toast" id="toast"></div>
+<div class=toast id=toast></div>
 
-    <script>
-        function formatDuration(seconds) {
-            if (!seconds) return "";
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = seconds % 60;
-            if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-            return `${m}:${String(s).padStart(2,'0')}`;
-        }
+<script>
+function fmtDur(s){if(!s)return '';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),s2=s%60;return h?h+':'+String(m).padStart(2,'0')+':'+String(s2).padStart(2,'0'):m+':'+String(s2).padStart(2,'0')}
+function fmtSz(mb){if(!mb||mb<=0)return'';return mb<1?'~'+Math.round(mb*1000)+'KB':'~'+mb.toFixed(1)+'MB'}
+function err(m){const e=document.getElementById('errorBox');e.textContent=m;e.classList.add('show');document.getElementById('loadingState').classList.remove('show');document.getElementById('resultContainer').classList.remove('show')}
+function hideErr(){document.getElementById('errorBox').classList.remove('show')}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 
-        function formatSize(mb) {
-            if (!mb || mb <= 0) return "";
-            if (mb < 1) return `~${Math.round(mb * 1000)} KB`;
-            return `~${mb.toFixed(1)} MB`;
-        }
+async function dlViaBlob(url,filename){
+const btn=event?.target||document.querySelector('.dlbtn[data-url="'+url+'"]');
+if(btn)btn.disabled=true;
+try{
+toast('⏳ Mendownload...');
+const r=await fetch(url,{mode:'cors'});
+if(!r.ok)throw new Error('HTTP '+r.status);
+const blob=await r.blob();
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download=filename||'video.mp4';
+document.body.appendChild(a);
+a.click();
+setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(a.href)},5e3);
+toast('✅ Download selesai!');
+}catch(e){
+console.warn('Blob download failed:',e);
+// Fallback: open in new tab
+window.open('/api/dl?url='+encodeURIComponent(url)+'&filename='+encodeURIComponent(filename),'_blank');
+toast('📤 Membuka di tab baru...');
+}
+if(btn)btn.disabled=false;
+}
 
-        function showError(msg) {
-            const el = document.getElementById('errorBox');
-            el.textContent = msg;
-            el.classList.add('show');
-            document.getElementById('loadingState').classList.remove('show');
-            document.getElementById('resultContainer').classList.remove('show');
-        }
-        function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+async function extract(){
+const url=document.getElementById('urlInput').value.trim();
+if(!url){err('Masukkan link terlebih dahulu.');return}
+hideErr();
+document.getElementById('loadingState').classList.add('show');
+document.getElementById('resultContainer').classList.remove('show');
+const btn=document.getElementById('extractBtn');
+btn.disabled=true;btn.classList.add('btn-loading');
+try{
+const r=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+const d=await r.json();
+if(d.error){err(d.error);return}
+render(d);
+}catch(e){err('Gagal terhubung ke server.')}
+finally{btn.disabled=false;btn.classList.remove('btn-loading');document.getElementById('loadingState').classList.remove('show')}
+}
 
-        function showToast(msg) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000);
-        }
+function render(d){
+document.getElementById('resultContainer').classList.add('show');
+document.getElementById('titleEl').textContent=d.title;
+document.getElementById('platformEl').textContent=d.platform;
+document.getElementById('uploaderEl').textContent=d.uploader||'';
+document.getElementById('durationEl').textContent=d.duration?fmtDur(d.duration):'';
+const t=document.getElementById('thumbEl');
+if(d.thumbnail){t.src=d.thumbnail;t.style.display='block'}else{t.style.display='none'}
 
-        async function extract() {
-            const url = document.getElementById('urlInput').value.trim();
-            if (!url) { showError('Masukkan link terlebih dahulu.'); return; }
+const c=document.getElementById('formatItems');
+c.innerHTML='';
+if(!d.formats||!d.formats.length){c.innerHTML='<p style="color:var(--text2);padding:12px 0">Tidak ada format tersedia.</p>';return}
 
-            hideError();
-            document.getElementById('loadingState').classList.add('show');
-            document.getElementById('resultContainer').classList.remove('show');
+const seen=new Set(),fmts=[];
+for(const f of d.formats){const k=f.resolution+'-'+f.ext;if(!seen.has(k)){seen.add(k);fmts.push(f)}}
 
-            const btn = document.getElementById('extractBtn');
-            btn.disabled = true; btn.classList.add('loading');
+const best=d.best;
+if(best){const i=fmts.indexOf(best);if(i>0){fmts.splice(i,1);fmts.unshift(best)}}
 
-            try {
-                const res = await fetch('/api/extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
-                const data = await res.json();
-                if (data.error) { showError(data.error); return; }
-                renderResult(data);
-            } catch (e) {
-                showError('Gagal terhubung ke server. Coba lagi.');
-            } finally {
-                btn.disabled = false; btn.classList.remove('loading');
-                document.getElementById('loadingState').classList.remove('show');
-            }
-        }
+const title=d.title||'video';
+for(const f of fmts){
+const el=document.createElement('div');
+el.className='fitem';
+const v=f.has_video;
+const lbl=v?f.resolution||'Video':'Audio';
+const h=v?f.ext.toUpperCase()+(f.fps>30?' · '+f.fps+'fps':''):f.ext.toUpperCase()+' · Audio';
+const sz=f.filesize_mb>0?'<span class="fsize ok">'+fmtSz(f.filesize_mb)+'</span>':'<span class="fsize">~? MB</span>';
+const fn=(title.replace(/[^a-zA-Z0-9]/g,'_')+'.'+f.ext).replace(/[^a-zA-Z0-9._-]/g,'');
+// Encode URL for blob download
+const encUrl=encodeURIComponent(f.url);
+el.innerHTML='<div class=fleft><div class="ficon '+(v?'v':'a')+'">'+(v?'🎬':'🎵')+'</div><div><div class=fdetail><span class=flabel>'+lbl+'</span> <span class=fhint>'+h+'</span>'+sz+'</div></div></div>'+
+'<div class=facts><button class=dlbtn data-url="'+f.url.replace(/"/g,'&quot;')+'" data-fn="'+fn+'" onclick="dlViaBlob(this.dataset.url,this.dataset.fn)">⬇ Download</button>'+
+'<button class=copybtn onclick="navigator.clipboard.writeText(\''+f.url.replace(/'/g,"\\'")+'\').then(()=>toast(\'✅ Link disalin!\'))">📋</button></div>';
+c.appendChild(el);
+}
+}
 
-        function renderResult(data) {
-            document.getElementById('resultContainer').classList.add('show');
-            document.getElementById('titleEl').textContent = data.title;
-            document.getElementById('platformEl').textContent = data.platform;
-            document.getElementById('uploaderEl').textContent = data.uploader || '';
-            document.getElementById('durationEl').textContent = data.duration ? formatDuration(data.duration) : '';
-
-            const thumb = document.getElementById('thumbEl');
-            if (data.thumbnail) { thumb.src = data.thumbnail; thumb.style.display = 'block'; }
-            else { thumb.style.display = 'none'; }
-
-            const container = document.getElementById('formatItems');
-            container.innerHTML = '';
-
-            if (!data.formats || data.formats.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-secondary); padding: 12px 0;">Tidak ada format tersedia.</p>';
-                return;
-            }
-
-            // Dedupe
-            const seen = new Set();
-            const formats = [];
-            for (const f of data.formats) {
-                const key = `${f.resolution}-${f.ext}`;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                formats.push(f);
-            }
-
-            // Best first
-            const best = data.best;
-            if (best) {
-                const idx = formats.indexOf(best);
-                if (idx > 0) { formats.splice(idx, 1); formats.unshift(best); }
-            }
-
-            for (const f of formats) {
-                const item = document.createElement('div');
-                item.className = 'format-item';
-
-                const isVideo = f.has_video;
-                const label = isVideo ? (f.resolution || 'Video') : 'Audio';
-                const hint = isVideo
-                    ? `${f.ext.toUpperCase()}${f.fps > 30 ? ` · ${f.fps}fps` : ''}`
-                    : `${f.ext.toUpperCase()} · Audio only`;
-
-                const hasSize = f.filesize_mb > 0;
-                const sizeTag = hasSize
-                    ? `<span class="format-size-badge has-size">${formatSize(f.filesize_mb)}</span>`
-                    : '<span class="format-size-badge">~? MB</span>';
-
-                // Build the proxy download URL
-                const dlUrl = `/api/dl?url=${encodeURIComponent(f.url)}&filename=${encodeURIComponent((data.title || 'video').replace(/[^a-zA-Z0-9]/g,'_') + '.' + f.ext)}`;
-
-                item.innerHTML = `
-                    <div class="format-left">
-                        <div class="format-icon ${isVideo ? 'video' : 'audio'}">${isVideo ? '🎬' : '🎵'}</div>
-                        <div>
-                            <div class="format-detail">
-                                <span class="label">${label}</span>
-                                <span class="hint">${hint}</span>
-                                ${sizeTag}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="format-actions">
-                        <a href="${dlUrl}" class="dl-btn" target="_blank">⬇ Download</a>
-                        <button class="copy-btn" onclick="copyLink('${f.url.replace(/'/g, "\\'")}')" title="Salin link langsung">📋</button>
-                    </div>
-                `;
-
-                container.appendChild(item);
-            }
-        }
-
-        function copyLink(url) {
-            navigator.clipboard.writeText(url).then(() => showToast('✅ Link disalin!'));
-        }
-
-        document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') extract(); });
-
-        document.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                document.getElementById('urlInput').value = chip.dataset.url;
-                extract();
-            });
-        });
-
-        if (window.innerWidth > 600) document.getElementById('urlInput').focus();
-    </script>
+document.getElementById('urlInput').addEventListener('keydown',e=>{if(e.key==='Enter')extract()});
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{document.getElementById('urlInput').value=c.dataset.url;extract()}));
+if(window.innerWidth>600)document.getElementById('urlInput').focus();
+</script>
 </body>
 </html>
