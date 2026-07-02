@@ -201,44 +201,103 @@ def api_extract():
 
 @app.route("/api/dl")
 def api_download():
-    """Proxy download: stream direct URL with Content-Disposition header."""
+    """
+    Download endpoint:
+    1. If 'url' param given → proxy stream (CDN URL)
+    2. If 'source' param given → use yt-dlp to download the source URL and stream file
+    """
     dl_url = request.args.get("url", "")
+    source = request.args.get("source", "")
     filename = request.args.get("filename", "donlotaja_video.mp4")
 
-    if not dl_url:
-        return jsonify({"error": "Missing url param"}), 400
+    # Mode 1: proxy stream from CDN URL
+    if dl_url:
+        try:
+            req = urllib.request.Request(dl_url)
+            req.add_header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+            if "instagram.com" in dl_url or "cdninstagram" in dl_url:
+                req.add_header("Referer", "https://www.instagram.com/")
 
-    try:
-        req = urllib.request.Request(dl_url)
-        req.add_header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+            resp = urllib.request.urlopen(req, timeout=30)
 
-        # Instagram CDN might need referrer
-        if "instagram.com" in dl_url or "cdninstagram" in dl_url:
-            req.add_header("Referer", "https://www.instagram.com/")
+            def generate():
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
 
-        resp = urllib.request.urlopen(req, timeout=30)
+            return Response(
+                generate(),
+                status=resp.status,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Length": resp.headers.get("Content-Length", ""),
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        except urllib.error.HTTPError as e:
+            return jsonify({"error": f"HTTP {e.code}: {e.reason}"}), e.code
+        except Exception as e:
+            return jsonify({"error": str(e)[:200]}), 502
 
-        def generate():
-            while True:
-                chunk = resp.read(65536)
-                if not chunk:
-                    break
-                yield chunk
+    # Mode 2: download via yt-dlp (for platforms where CDN is blocked from Vercel)
+    if source:
+        import yt_dlp, tempfile
 
-        return Response(
-            generate(),
-            status=resp.status,
-            headers={
-                "Content-Type": "application/octet-stream",
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Length": resp.headers.get("Content-Length", ""),
-                "Access-Control-Allow-Origin": "*",
+        try:
+            tf = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+            tf.close()
+            tmp_path = tf.name
+
+            cookie_file = get_cookie_file()
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "no_playlist": True,
+                "cookiefile": cookie_file,
+                "format": "best",
+                "outtmpl": tmp_path,
+                "merge_output_format": "mp4",
             }
-        )
-    except urllib.error.HTTPError as e:
-        return jsonify({"error": f"HTTP {e.code}: {e.reason}"}), e.code
-    except Exception as e:
-        return jsonify({"error": str(e)[:200]}), 502
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([source])
+
+            if not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
+                return jsonify({"error": "Download gagal"}), 500
+
+            file_size = os.path.getsize(tmp_path)
+
+            def generate():
+                with open(tmp_path, "rb") as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk:
+                            break
+                        yield chunk
+                os.unlink(tmp_path)
+
+            return Response(
+                generate(),
+                status=200,
+                headers={
+                    "Content-Type": "application/octet-stream",
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Length": str(file_size),
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        except Exception as e:
+            try:
+                if tmp_path and os.path.isfile(tmp_path):
+                    os.unlink(tmp_path)
+            except Exception:
+                pass
+            return jsonify({"error": str(e)[:300]}), 502
+
+    return jsonify({"error": "Missing url or source param"}), 400
 
 
 @app.route("/api/cookies-status")

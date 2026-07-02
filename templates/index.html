@@ -147,30 +147,6 @@ function err(m){const e=document.getElementById('errorBox');e.textContent=m;e.cl
 function hideErr(){document.getElementById('errorBox').classList.remove('show')}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
 
-async function dlViaBlob(url,filename){
-const btn=event?.target||document.querySelector('.dlbtn[data-url="'+url+'"]');
-if(btn)btn.disabled=true;
-try{
-toast('⏳ Mendownload...');
-const r=await fetch(url,{mode:'cors'});
-if(!r.ok)throw new Error('HTTP '+r.status);
-const blob=await r.blob();
-const a=document.createElement('a');
-a.href=URL.createObjectURL(blob);
-a.download=filename||'video.mp4';
-document.body.appendChild(a);
-a.click();
-setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(a.href)},5e3);
-toast('✅ Download selesai!');
-}catch(e){
-console.warn('Blob download failed:',e);
-// Fallback: open in new tab
-window.open('/api/dl?url='+encodeURIComponent(url)+'&filename='+encodeURIComponent(filename),'_blank');
-toast('📤 Membuka di tab baru...');
-}
-if(btn)btn.disabled=false;
-}
-
 async function extract(){
 const url=document.getElementById('urlInput').value.trim();
 if(!url){err('Masukkan link terlebih dahulu.');return}
@@ -216,10 +192,10 @@ const lbl=v?f.resolution||'Video':'Audio';
 const h=v?f.ext.toUpperCase()+(f.fps>30?' · '+f.fps+'fps':''):f.ext.toUpperCase()+' · Audio';
 const sz=f.filesize_mb>0?'<span class="fsize ok">'+fmtSz(f.filesize_mb)+'</span>':'<span class="fsize">~? MB</span>';
 const fn=(title.replace(/[^a-zA-Z0-9]/g,'_')+'.'+f.ext).replace(/[^a-zA-Z0-9._-]/g,'');
-// Encode URL for blob download
-const encUrl=encodeURIComponent(f.url);
+// Use server-side download (reliable, includes audio)
+const dlSrc = '/api/dl?source='+encodeURIComponent(d.webpage_url||'')+'&filename='+encodeURIComponent(fn);
 el.innerHTML='<div class=fleft><div class="ficon '+(v?'v':'a')+'">'+(v?'🎬':'🎵')+'</div><div><div class=fdetail><span class=flabel>'+lbl+'</span> <span class=fhint>'+h+'</span>'+sz+'</div></div></div>'+
-'<div class=facts><button class=dlbtn data-url="'+f.url.replace(/"/g,'&quot;')+'" data-fn="'+fn+'" onclick="dlViaBlob(this.dataset.url,this.dataset.fn)">⬇ Download</button>'+
+'<div class=facts><a href="'+dlSrc+'" class=dlbtn target=_blank>⬇ Download</a>'+
 '<button class=copybtn onclick="navigator.clipboard.writeText(\''+f.url.replace(/'/g,"\\'")+'\').then(()=>toast(\'✅ Link disalin!\'))">📋</button></div>';
 c.appendChild(el);
 }
