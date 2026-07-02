@@ -19,9 +19,18 @@ def extract_info(url):
     if insta_b64:
         import tempfile, base64
         try:
-            decoded = base64.b64decode(insta_b64).decode()
+            raw = base64.b64decode(insta_b64).decode()
+            # Convert space-separated Netscape to tab-separated
+            tab_lines = ["# Netscape HTTP Cookie File", "# Auto-converted", ""]
+            for line in raw.strip().split("\n"):
+                if line.startswith("#") or not line.strip():
+                    continue
+                parts = line.split()
+                if len(parts) >= 7:
+                    tab_line = "\t".join([parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], " ".join(parts[6:])])
+                    tab_lines.append(tab_line)
             tf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
-            tf.write(decoded)
+            tf.write("\n".join(tab_lines) + "\n")
             tf.close()
             cookie_file = tf.name
         except Exception:
