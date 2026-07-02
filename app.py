@@ -13,15 +13,30 @@ def extract_info(url):
     """
     import yt_dlp
 
-    # Cookie file (for Instagram etc.)
-    cookie_file = os.path.expanduser("~/.dl_bot_cookies.txt")
-    cookies_opt = ["--cookies", cookie_file] if os.path.isfile(cookie_file) else []
+    # Cookie file (for Instagram etc.) — support Vercel env var
+    cookie_file = None
+    insta_b64 = os.environ.get("INSTA_COOKIES_B64", "")
+    if insta_b64:
+        import tempfile, base64
+        try:
+            decoded = base64.b64decode(insta_b64).decode()
+            tf = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+            tf.write(decoded)
+            tf.close()
+            cookie_file = tf.name
+        except Exception:
+            pass
+
+    if not cookie_file:
+        cookie_file = os.path.expanduser("~/.dl_bot_cookies.txt")
+        if not os.path.isfile(cookie_file):
+            cookie_file = None
 
     ydl_opts = {
         "quiet": True,
         "no_warnings": True,
         "no_playlist": True,
-        "cookiefile": cookie_file if os.path.isfile(cookie_file) else None,
+        "cookiefile": cookie_file,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
