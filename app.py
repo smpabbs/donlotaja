@@ -252,29 +252,33 @@ def api_download():
             tmp_path = tf.name
 
             cookie_file = get_cookie_file()
-            import io
-            log_buf = io.StringIO()
-            ydl_opts = {
-                "quiet": False,
-                "no_warnings": False,
-                "verbose": True,
-                "no_playlist": True,
-                "cookiefile": cookie_file,
-                "format": "best",
-                "outtmpl": tmp_path,
-                "logger": type('Logger', (), {
-                    'debug': lambda s, msg: None,
-                    'warning': lambda s, msg: log_buf.write(msg + '\n'),
-                    'error': lambda s, msg: log_buf.write(msg + '\n'),
-                })(),
-            }
+            try:
+                import io
+                log_buf = io.StringIO()
+                ydl_opts = {
+                    "quiet": False,
+                    "no_warnings": False,
+                    "verbose": True,
+                    "no_playlist": True,
+                    "cookiefile": cookie_file,
+                    "format": "best",
+                    "outtmpl": tmp_path,
+                    "logger": type('Logger', (), {
+                        'debug': lambda s, msg: None,
+                        'warning': lambda s, msg: log_buf.write(msg + '\n'),
+                        'error': lambda s, msg: log_buf.write(msg + '\n'),
+                    })(),
+                }
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([source])
-            err_log = log_buf.getvalue()
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([source])
+                err_log = log_buf.getvalue()
 
-            if not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
-                return jsonify({"error": "Download gagal", "detail": err_log[:1000]}), 500
+                if not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
+                    return jsonify({"error": "Download gagal - file not found", "tmp_path": tmp_path, "exists": os.path.isfile(tmp_path), "detail": err_log[:1000]}), 500
+            except Exception as e:
+                err_log = log_buf.getvalue() if 'log_buf' in dir() else ""
+                return jsonify({"error": "yt-dlp: " + str(e)[:300], "detail": err_log[:1000], "tmp_path": tmp_path}), 500
 
             file_size = os.path.getsize(tmp_path)
 
