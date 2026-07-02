@@ -252,21 +252,29 @@ def api_download():
             tmp_path = tf.name
 
             cookie_file = get_cookie_file()
+            import io
+            log_buf = io.StringIO()
             ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
+                "quiet": False,
+                "no_warnings": False,
+                "verbose": True,
                 "no_playlist": True,
                 "cookiefile": cookie_file,
                 "format": "best",
                 "outtmpl": tmp_path,
-                "merge_output_format": "mp4",
+                "logger": type('Logger', (), {
+                    'debug': lambda s, msg: None,
+                    'warning': lambda s, msg: log_buf.write(msg + '\n'),
+                    'error': lambda s, msg: log_buf.write(msg + '\n'),
+                })(),
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([source])
+            err_log = log_buf.getvalue()
 
             if not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
-                return jsonify({"error": "Download gagal"}), 500
+                return jsonify({"error": "Download gagal", "detail": err_log[:1000]}), 500
 
             file_size = os.path.getsize(tmp_path)
 
@@ -295,7 +303,7 @@ def api_download():
                     os.unlink(tmp_path)
             except Exception:
                 pass
-            return jsonify({"error": str(e)[:300]}), 502
+            return jsonify({"error": str(e)[:300], "detail": err_log[:1000] if 'err_log' in dir() else ""}), 502
 
     return jsonify({"error": "Missing url or source param"}), 400
 
