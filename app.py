@@ -244,7 +244,7 @@ def api_download():
 
     # Mode 2: download via yt-dlp (for platforms where CDN is blocked from Vercel)
     if source:
-        import yt_dlp, tempfile, io, uuid
+        import yt_dlp
 
         try:
             # Step 1: Get direct URL and file info via extract_info (not download)
