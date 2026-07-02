@@ -56,24 +56,12 @@ def extract_info(url):
     """Extract media info & direct download links using yt-dlp."""
     import yt_dlp
 
-    cookie_file = get_cookie_file()
-
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "no_playlist": True,
-        "cookiefile": cookie_file,
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        meta = ydl.extract_info(url, download=False)
-
     platforms = {
         "youtube": ["youtube.com", "youtu.be"],
         "tiktok": ["tiktok.com", "douyin.com"],
         "instagram": ["instagram.com", "ig.me"],
         "twitter": ["twitter.com", "x.com", "t.co"],
-        "threads": ["threads.net"],
+        "threads": ["threads.net", "threads.com"],
         "facebook": ["facebook.com", "fb.com", "fb.watch"],
         "soundcloud": ["soundcloud.com"],
         "spotify": ["open.spotify.com"],
@@ -84,12 +72,31 @@ def extract_info(url):
     def detect_platform(u):
         ul = u.lower()
         for plat, patterns in platforms.items():
-            if any(p in ul for p in patterns):
-                return plat
+            for p in patterns:
+                if p in ul:
+                    return plat
         return "unknown"
 
     platform = detect_platform(url)
 
+    cookie_file = get_cookie_file()
+
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "no_playlist": True,
+        "cookiefile": cookie_file,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            meta = ydl.extract_info(url, download=False)
+        except yt_dlp.utils.UnsupportedError:
+            raise ValueError(
+                f"Platform '{platform}' belum didukung di web app. "
+            )
+
+    # ─── Format header ─────────────────────────────────────────────────────────
     result = {
         "title": meta.get("title", "Unknown"),
         "platform": platform,
