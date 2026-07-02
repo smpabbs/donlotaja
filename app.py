@@ -79,6 +79,12 @@ def extract_info(url):
 
     platform = detect_platform(url)
 
+    # Threads — not supported by yt-dlp at all
+    if platform == "threads":
+        raise ValueError(
+            "Platform 'Threads' belum didukung di web app. "
+        )
+
     cookie_file = get_cookie_file()
 
     ydl_opts = {
